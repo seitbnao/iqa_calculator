@@ -128,7 +128,7 @@ result = WQI(
 # Display the result
 print("WQI Calculation Result:")
 print(f"WQI: {result['iqa']}")
-print(f"Water Quality: {result['quality']}")
+print(f"Water Quality: {result['qualidade']}")
 ```
 
 ## Parameters
