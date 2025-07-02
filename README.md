@@ -1,160 +1,155 @@
+# Calculadora de IQA  ·  WQI Calculator
 
-# Calculadora de IQA
+**iqa_calculator** é um pacote Python para calcular o Índice de Qualidade da Água (IQA) — também chamado Water Quality Index (WQI). Usa a fórmula CETESB e permite ajustar os nove pesos quando necessário.
 
-O pacote `Calculadora de IQA` fornece uma função para calcular o Índice de Qualidade da Água (IQA). Este índice é utilizado para avaliar a qualidade da água com base em diversos parâmetros físicos, químicos e biológicos.
+---
 
-## Instalação
-
-Para instalar o pacote, use o comando pip:
+## Instalação / Installation
 
 ```bash
-pip install iqa_calculator
+python -m pip install iqa_calculator
 ```
 
-## Exemplo de Uso
+---
 
-Abaixo está um exemplo de como utilizar o pacote para calcular o Índice de Qualidade da Água:
+## Exemplos (coincidentes com a suíte de testes)
+
+### 1. IQA com valores padrão (sem altitude/temperatura) — *test_calc_iqa_default_values*
 
 ```python
-from IQA.iqa_calculator import IQA
+from iqa.iqa_calculator import IQA
 
-# Definindo os parâmetros de entrada
-oxigenio_dissolvido = 8.0  # mg/L
-coliformes_fecais = 200  # NMP/100mL
-ph = 7.0
-dbo = 5.0  # Demanda Bioquímica de Oxigênio, mg/L
-nitrogenio_total = 1.0  # mg/L
-fosforo_total = 0.1  # mg/L
-turbidez = 2.0  # NTU (Unidades Nefelométricas de Turbidez)
-solidos_totais = 100  # mg/L
-altitude = 100  # Opcional, metros
-temperatura = 25  # Opcional, graus Celsius
-
-# Calculando o Índice de Qualidade da Água
 resultado = IQA(
-    oxigenio_dissolvido=oxigenio_dissolvido,
-    coliformes_fecais=coliformes_fecais,
-    ph=ph,
-    dbo=dbo,
-    nitrogenio_total=nitrogenio_total,
-    fosforo_total=fosforo_total,
-    turbidez=turbidez,
-    solidos_totais=solidos_totais,
-    altitude=altitude,
-    temperatura=temperatura
+    oxigenio_dissolvido=8.0,
+    coliformes_fecais=200,
+    ph=7.0,
+    dbo=5.0,
+    nitrogenio_total=1.0,
+    fosforo_total=0.1,
+    turbidez=2.0,
+    solidos_totais=100,
 )
-
-# Exibindo o resultado
-print("Resultado do cálculo do IQA:")
-print(f"IQA: {resultado['iqa']}")
-print(f"Qualidade da água: {resultado['qualidade']}")
+print(resultado)
+# {'iqa': 73.2, 'qualidade': 'Boa'} (exemplo)
 ```
 
-## Parâmetros
-
-- `oxigenio_dissolvido`: Oxigênio dissolvido em mg/L.
-- `coliformes_fecais`: Número de coliformes fecais em NMP/100mL.
-- `ph`: Nível de pH da amostra de água.
-- `dbo`: Demanda Bioquímica de Oxigênio em mg/L.
-- `nitrogenio_total`: Nitrogênio total em mg/L.
-- `fosforo_total`: Fósforo total em mg/L.
-- `turbidez`: Turbidez da água em NTU.
-- `solidos_totais`: Sólidos totais em mg/L.
-- `altitude` (opcional): Altitude em metros.
-- `temperatura` (opcional): Temperatura em graus Celsius.
-
-## Saída
-
-A função retorna um dicionário com as seguintes chaves:
-
-- `iqa`: O Índice de Qualidade da Água calculado.
-- `qualidade`: Uma descrição qualitativa da qualidade da água (por exemplo, "Boa", "Ruim").
-
-## Licença
-
-[Licença MIT](LICENSE)
-
-## Contribuições
-
-Contribuições, problemas e pedidos de funcionalidades são bem-vindos!
-
-
-
-# WQI Calculator
-
-The `WQI Calculator` package provides a function for calculating the Water Quality Index (WQI). This index is used to assess water quality based on various physical, chemical, and biological parameters.
-
-## Installation
-
-To install the package, use pip:
-
-```bash
-pip install iqa_calculator
-```
-
-## Usage Example
-
-Here is an example of how to use the package to calculate the Water Quality Index:
+### 2. IQA informando altitude e temperatura — *test_calc_iqa_with_altitude_and_temperature*
 
 ```python
-from IQA.iqa_calculator import WQI
-
-# Define the input parameters
-dissolved_oxygen = 8.0  # mg/L
-fecal_coliforms = 200  # MPN/100mL
-ph = 7.0
-bod = 5.0  # Biochemical Oxygen Demand, mg/L
-total_nitrogen = 1.0  # mg/L
-total_phosphorus = 0.1  # mg/L
-turbidity = 2.0  # NTU (Nephelometric Turbidity Units)
-total_solids = 100  # mg/L
-altitude = 100  # Optional, meters
-temperature = 25  # Optional, Celsius
-
-# Calculate the Water Quality Index
-result = WQI(
-    dissolved_oxygen=dissolved_oxygen,
-    fecal_coliforms=fecal_coliforms,
-    ph=ph,
-    bod=bod,
-    total_nitrogen=total_nitrogen,
-    total_phosphorus=total_phosphorus,
-    turbidity=turbidity,
-    total_solids=total_solids,
-    altitude=altitude,
-    temperature=temperature
+resultado = IQA(
+    oxigenio_dissolvido=9.0,
+    coliformes_fecais=150,
+    ph=6.5,
+    dbo=4.0,
+    nitrogenio_total=2.0,
+    fosforo_total=0.5,
+    turbidez=3.0,
+    solidos_totais=120,
+    altitude=100,
+    temperatura=25,
 )
-
-# Display the result
-print("WQI Calculation Result:")
-print(f"WQI: {result['iqa']}")
-print(f"Water Quality: {result['qualidade']}")
 ```
 
-## Parameters
+### 3. IQA em condições extremas — *test_calc_iqa_extreme_values*
 
-- `dissolved_oxygen`: Dissolved oxygen in mg/L.
-- `fecal_coliforms`: Number of fecal coliforms in MPN/100mL.
-- `ph`: pH level of the water sample.
-- `bod`: Biochemical Oxygen Demand in mg/L.
-- `total_nitrogen`: Total nitrogen in mg/L.
-- `total_phosphorus`: Total phosphorus in mg/L.
-- `turbidity`: Turbidity of the water in NTU.
-- `total_solids`: Total solids in mg/L.
-- `altitude` (optional): Altitude in meters.
-- `temperature` (optional): Temperature in Celsius.
+```python
+resultado = IQA(
+    oxigenio_dissolvido=0.5,
+    coliformes_fecais=100_000,
+    ph=2.0,
+    dbo=50.0,
+    nitrogenio_total=80.0,
+    fosforo_total=10.0,
+    turbidez=200,
+    solidos_totais=1000,
+    altitude=5000,
+    temperatura=50,
+)
+```
 
-## Output
+### 4. Pesos personalizados (lista) — *test_calc_iqa_custom_weights_list*
 
-The function returns a dictionary with the following keys:
+```python
+pesos = [0.15, 0.17, 0.12, 0.10, 0.10, 0.10, 0.10, 0.08, 0.08]
+custom = IQA(
+    oxigenio_dissolvido=7.5,
+    coliformes_fecais=300,
+    ph=7.2,
+    dbo=4.0,
+    nitrogenio_total=1.5,
+    fosforo_total=0.2,
+    turbidez=5,
+    solidos_totais=110,
+    weights=pesos,
+)
+```
 
-- `iqa`: The calculated Water Quality Index.
-- `quality`: A qualitative description of the water quality (e.g., "Good", "Poor").
+### 5. Pesos personalizados (dict parcial) — *test_calc_iqa_custom_weights_dict_partial*
 
-## License
+```python
+custom = IQA(
+    oxigenio_dissolvido=8.2,
+    coliformes_fecais=180,
+    ph=6.9,
+    dbo=3.8,
+    nitrogenio_total=1.2,
+    fosforo_total=0.08,
+    turbidez=4,
+    solidos_totais=105,
+    weights={"ph": 0.20},
+)
+```
 
-[MIT License](LICENSE)
+> Todas as chamadas retornam um `dict` com as chaves `iqa` e `qualidade`, conforme verificado nos testes.
 
-## Contributions
+---
 
-Contributions, issues, and feature requests are welcome!
+## WQI (alias internacional)
+
+```python
+from iqa.iqa_calculator import WQI
+
+result = WQI(
+    oxigenio_dissolvido=8.0,
+    coliformes_fecais=200,
+    ph=7.0,
+    dbo=5.0,
+    nitrogenio_total=1.0,
+    fosforo_total=0.1,
+    turbidez=2.0,
+    solidos_totais=100,
+)
+print(result)
+```
+
+---
+
+## API — Parâmetros
+
+| Nome | Tipo | Unidade | Comentário |
+|------|------|---------|------------|
+| `oxigenio_dissolvido` | float | mg/L | Dissolved Oxygen |
+| `coliformes_fecais` | float | NMP·100 mL⁻¹ | Fecal Coliforms |
+| `ph` | float | — | Potencial hidrogeniônico |
+| `dbo` | float | mg/L | Biochemical Oxygen Demand |
+| `nitrogenio_total` | float | mg/L | Total Nitrogen |
+| `fosforo_total` | float | mg/L | Total Phosphorus |
+| `turbidez` | float | NTU | Turbidity |
+| `solidos_totais` | float | mg/L | Total Solids |
+| `altitude` | float, opcional | m | Default = 200 |
+| `temperatura` | float, opcional | °C | Default = 22 |
+| `weights` | list[float] ou dict[str,float] | — | Opcional (9 valores ou dict parcial) |
+
+A classificação segue o limiar CETESB:
+`≤19` Péssima | `≤36` Ruim | `≤51` Regular | `≤79` Boa | `>79` Ótima.
+---
+
+## Licença / License
+
+Distribuído sob [MIT](LICENSE).
+
+---
+
+## Contribuições / Contributions
+
+Pull requests e issues são bem‑vindos! Abra um *issue* ou envie uma *PR* no [GitHub](https://github.com/seuusuario/iqa_calculator).

@@ -1,164 +1,217 @@
 import math
+from typing import Sequence, Mapping, Optional, Union
 
-def WQI(oxigenio_dissolvido, coliformes_fecais, ph, dbo, nitrogenio_total, fosforo_total, turbidez, solidos_totais, altitude=None, temperatura=None) :
- return IQA(oxigenio_dissolvido, coliformes_fecais, ph, dbo, nitrogenio_total, fosforo_total, turbidez, solidos_totais, altitude, temperatura)
+# Pesos de referência do IQA-CETESB (ordem: OD, CF, pH, DBO, NT, FT, Temp, Turbidez, Sólidos)
+_DEFAULT_WEIGHTS = {
+    "od":   0.17,
+    "cf":   0.15,
+    "ph":   0.12,
+    "dbo":  0.10,
+    "nt":   0.10,
+    "ft":   0.10,
+    "temp": 0.10,
+    "tb":   0.08,
+    "st":   0.08,
+}
+
+def _parse_weights(
+    weights: Optional[Union[Sequence[float], Mapping[str, float]]]
+) -> Mapping[str, float]:
+    """
+    Normaliza o argumento ``weights`` para um dicionário com as nove chaves
+    padronizadas. Aceita:
+      • lista/tupla de 9 valores (na ordem _DEFAULT_WEIGHTS) ou  
+      • dict parcial/total com qualquer subconjunto dessas chaves.
+    """
+    if weights is None:
+        return _DEFAULT_WEIGHTS
+
+    if isinstance(weights, Sequence):
+        if len(weights) != 9:
+            raise ValueError("Se 'weights' for sequência, deve conter 9 valores.")
+        return dict(zip(_DEFAULT_WEIGHTS, map(float, weights)))
+
+    if isinstance(weights, Mapping):
+        # Preenche ausentes com o padrão; preserva os demais
+        final = _DEFAULT_WEIGHTS.copy()
+        for k, v in weights.items():
+            if k not in _DEFAULT_WEIGHTS:
+                raise KeyError(
+                    f"Chave de peso desconhecida: '{k}'. "
+                    f"Use {list(_DEFAULT_WEIGHTS.keys())}"
+                )
+            final[k] = float(v)
+        return final
+
+    raise TypeError("'weights' deve ser None, sequência ou mapeamento.")
+
+
+def WQI(*args, **kwargs):
+    """Alias internacional para IQA."""
+    return IQA(*args, **kwargs)
+
 
 def IQA(
-    oxigenio_dissolvido, coliformes_fecais, ph, dbo, nitrogenio_total, fosforo_total, turbidez, solidos_totais, altitude=None, temperatura=None
+    oxigenio_dissolvido: float,
+    coliformes_fecais: float,
+    ph: float,
+    dbo: float,
+    nitrogenio_total: float,
+    fosforo_total: float,
+    turbidez: float,
+    solidos_totais: float,
+    altitude: Optional[float] = None,
+    temperatura: Optional[float] = None,
+    weights: Optional[Union[Sequence[float], Mapping[str, float]]] = None,
 ):
     """
-    Function to calculate the Water Quality Index (IQA).
+    Calcula o Índice de Qualidade da Água (IQA) segundo a metodologia CETESB,
+    permitindo ajustar os pesos dos nove parâmetros.
 
-    Parameters:
-        oxigenio_dissolvido (float): Dissolved Oxygen.
-        coliformes_fecais (float): Fecal Coliforms.
-        ph (float): pH value.
-        dbo (float): Biochemical Oxygen Demand (BOD).
-        nitrogenio_total (float): Total Nitrogen.
-        fosforo_total (float): Total Phosphorus (mg/L or converted as per option).
-        turbidez (float): Turbidity.
-        solidos_totais (float): Total Solids.
-        altitude (float, optional): Altitude (in meters). Defaults to 200 if not provided.
-        temperatura (float, optional): Temperature (in ºC). Defaults to 22 if not provided.
-
-    Returns:
-        dict: A dictionary containing the IQA value and the water quality classification.
+    Parâmetros adicionais
+    ---------------------
+    weights : list[float] | dict[str,float] | None
+        • list/tuple de 9 valores (ordem: OD, CF, pH, DBO, NT, FT, Temp, Turbidez, Sólidos)
+        • ou dict com qualquer subconjunto das chaves acima.
+        • se None, usa os pesos oficiais.
     """
 
-    # Set default values for altitude and temperature if not provided
-    if altitude is None:
-        altitude = 200
-    if temperatura is None:
-        temperatura = 22
+    # ---------- Preparação ----------
+    w = _parse_weights(weights)
 
-    # Dissolved Oxygen
-    # Calculate saturation concentration based on temperature and altitude
-    concentracao_saturacao = (
+    # Altitude e temperatura padrão
+    altitude = 200 if altitude is None else altitude
+    temperatura = 22 if temperatura is None else temperatura
+
+    # ---------- 1) Oxigênio Dissolvido ----------
+    cs = (
         (14.62 - 0.3898 * temperatura + 0.006969 * temperatura**2 - 0.00005896 * temperatura**3)
         * (1 - 0.0000228675 * altitude) ** 5.167
     )
-    perc_saturacao = 100 * oxigenio_dissolvido / concentracao_saturacao
+    psat = 100 * oxigenio_dissolvido / cs
 
-    # Calculate Dissolved Oxygen weight based on saturation percentage
-    if perc_saturacao > 0 and perc_saturacao <= 50:
-        resultado_od = 3 + 0.34 * perc_saturacao + 0.008095 * perc_saturacao**2 + 1.35252 * 0.00001 * perc_saturacao**3
-    elif perc_saturacao > 50 and perc_saturacao <= 85:
-        resultado_od = 3 - 1.166 * perc_saturacao + 0.058 * perc_saturacao - 3.803435 * 0.00001 * perc_saturacao**3
-    elif perc_saturacao > 85 and perc_saturacao <= 100:
-        resultado_od = 3 + 3.7745 * perc_saturacao**0.704889
-    elif perc_saturacao > 100 and perc_saturacao <= 140:
-        resultado_od = 3 + 2.9 * perc_saturacao - 0.02496 * perc_saturacao**2 + 5.60919 * 0.00001 * perc_saturacao**3
+    if 0 < psat <= 50:
+        q_od = 3 + 0.34 * psat + 0.008095 * psat**2 + 1.35252e-5 * psat**3
+    elif psat <= 85:
+        q_od = 3 - 1.166 * psat + 0.058 * psat - 3.803435e-5 * psat**3
+    elif psat <= 100:
+        q_od = 3 + 3.7745 * psat**0.704889
+    elif psat <= 140:
+        q_od = 3 + 2.9 * psat - 0.02496 * psat**2 + 5.60919e-5 * psat**3
     else:
-        resultado_od = 3 + 47
-    peso_od = resultado_od**0.17  # Apply weight to the Dissolved Oxygen result
+        q_od = 50  # valor de saturação acima da faixa
+    p_od = q_od**w["od"]
 
-    # Fecal Coliforms
-    # Convert to log10 and calculate weight based on conditions
-    coliformes_fecais = math.log10(coliformes_fecais)
-    if coliformes_fecais > 0 and coliformes_fecais <= 1:
-        resultado_cf = 100 - 33 * coliformes_fecais
-    elif coliformes_fecais > 1 and coliformes_fecais <= 5:
-        resultado_cf = 100 - 37.2 * coliformes_fecais + 3.60743 * coliformes_fecais**2
+    # ---------- 2) Coliformes Fecais ----------
+    cf_log = math.log10(coliformes_fecais)
+    if 0 < cf_log <= 1:
+        q_cf = 100 - 33 * cf_log
+    elif cf_log <= 5:
+        q_cf = 100 - 37.2 * cf_log + 3.60743 * cf_log**2
     else:
-        resultado_cf = 3
-    peso_cf = resultado_cf**0.15
+        q_cf = 3
+    p_cf = q_cf**w["cf"]
 
-    # pH
-    # Calculate weight based on pH intervals
-    if ph > 0 and ph <= 2:
-        resultado_ph = 2.0
-    elif ph > 2 and ph <= 4:
-        resultado_ph = 13.6 - 10.6 * ph + 2.4364 * ph**2
-    elif ph > 4 and ph <= 6.2:
-        resultado_ph = 155.5 - 77.36 * ph + 10.2481 * ph**2
-    elif ph > 6.2 and ph <= 7:
-        resultado_ph = -657.2 + 197.38 * ph - 12.9167 * ph**2
-    elif ph > 7 and ph <= 8:
-        resultado_ph = -427.8 + 142.05 * ph - 9.695 * ph**2
-    elif ph > 8 and ph <= 8.5:
-        resultado_ph = 216 - 16 * ph
-    elif ph > 8.5 and ph <= 9:
-        resultado_ph = 1415823 * math.exp(-1.1507 * ph)
-    elif ph > 9 and ph <= 10:
-        resultado_ph = 228 - 27 * ph
-    elif ph > 10 and ph <= 12:
-        resultado_ph = 633 - 106.5 * ph + 4.5 * ph**2
+    # ---------- 3) pH ----------
+    if 0 < ph <= 2:
+        q_ph = 2.0
+    elif ph <= 4:
+        q_ph = 13.6 - 10.6 * ph + 2.4364 * ph**2
+    elif ph <= 6.2:
+        q_ph = 155.5 - 77.36 * ph + 10.2481 * ph**2
+    elif ph <= 7:
+        q_ph = -657.2 + 197.38 * ph - 12.9167 * ph**2
+    elif ph <= 8:
+        q_ph = -427.8 + 142.05 * ph - 9.695 * ph**2
+    elif ph <= 8.5:
+        q_ph = 216 - 16 * ph
+    elif ph <= 9:
+        q_ph = 1_415_823 * math.exp(-1.1507 * ph)
+    elif ph <= 10:
+        q_ph = 228 - 27 * ph
+    elif ph <= 12:
+        q_ph = 633 - 106.5 * ph + 4.5 * ph**2
     else:
-        resultado_ph = 3.0
-    peso_ph = resultado_ph**0.12
+        q_ph = 3.0
+    p_ph = q_ph**w["ph"]
 
-    # Biochemical Oxygen Demand (BOD)
-    # Calculate weight based on BOD value
-    if dbo > 0 and dbo <= 5:
-        resultado_dbo = 99.96 * math.exp(-0.1232728 * dbo)
-    elif dbo > 5 and dbo <= 15:
-        resultado_dbo = 104.67 - 31.5463 * math.log10(dbo)
-    elif dbo > 15 and dbo <= 30:
-        resultado_dbo = 4394.91 * dbo**-1.99809
+    # ---------- 4) DBO ----------
+    if 0 < dbo <= 5:
+        q_dbo = 99.96 * math.exp(-0.1232728 * dbo)
+    elif dbo <= 15:
+        q_dbo = 104.67 - 31.5463 * math.log10(dbo)
+    elif dbo <= 30:
+        q_dbo = 4394.91 * dbo**-1.99809
     else:
-        resultado_dbo = 2
-    peso_dbo = resultado_dbo**0.10
+        q_dbo = 2.0
+    p_dbo = q_dbo**w["dbo"]
 
-    # Total Nitrogen
-    # Calculate weight based on Total Nitrogen
-    if nitrogenio_total > 0 and nitrogenio_total <= 10:
-        resultado_nt = 100 - 8.169 * nitrogenio_total + 0.3059 * nitrogenio_total**2
-    elif nitrogenio_total > 10 and nitrogenio_total <= 60:
-        resultado_nt = 101.9 - 23.1023 * math.log10(nitrogenio_total)
-    elif nitrogenio_total > 60 and nitrogenio_total <= 100:
-        resultado_nt = 159.3148 * math.exp(-0.0512842 * nitrogenio_total)
+    # ---------- 5) Nitrogênio Total ----------
+    if 0 < nitrogenio_total <= 10:
+        q_nt = 100 - 8.169 * nitrogenio_total + 0.3059 * nitrogenio_total**2
+    elif nitrogenio_total <= 60:
+        q_nt = 101.9 - 23.1023 * math.log10(nitrogenio_total)
+    elif nitrogenio_total <= 100:
+        q_nt = 159.3148 * math.exp(-0.0512842 * nitrogenio_total)
     else:
-        resultado_nt = 1
-    peso_nt = resultado_nt**0.10
+        q_nt = 1.0
+    p_nt = q_nt**w["nt"]
 
-    # Total Phosphorus
-    # Calculate weight based on Total Phosphorus value
-    if fosforo_total > 0 and fosforo_total <= 1:
-        resultado_ft = 99 * math.exp(-0.91629 * fosforo_total)
-    elif fosforo_total > 1 and fosforo_total <= 5:
-        resultado_ft = 57.6 - 20.178 * fosforo_total + 2.1326 * fosforo_total**2
-    elif fosforo_total > 5 and fosforo_total <= 10:
-        resultado_ft = 19.8 * math.exp(-0.13544 * fosforo_total)
+    # ---------- 6) Fósforo Total ----------
+    if 0 < fosforo_total <= 1:
+        q_ft = 99 * math.exp(-0.91629 * fosforo_total)
+    elif fosforo_total <= 5:
+        q_ft = 57.6 - 20.178 * fosforo_total + 2.1326 * fosforo_total**2
+    elif fosforo_total <= 10:
+        q_ft = 19.8 * math.exp(-0.13544 * fosforo_total)
     else:
-        resultado_ft = 5.0
-    peso_ft = resultado_ft**0.10
+        q_ft = 5.0
+    p_ft = q_ft**w["ft"]
 
-    # Turbidity
-    # Calculate weight based on Turbidity value
-    if turbidez > 0 and turbidez <= 25:
-        resultado_tb = 100.17 - 2.67 * turbidez + 0.03775 * turbidez**2
-    elif turbidez > 25 and turbidez <= 100:
-        resultado_tb = 84.76 * math.exp(-0.016206 * turbidez)
+    # ---------- 7) Turbidez ----------
+    if 0 < turbidez <= 25:
+        q_tb = 100.17 - 2.67 * turbidez + 0.03775 * turbidez**2
+    elif turbidez <= 100:
+        q_tb = 84.76 * math.exp(-0.016206 * turbidez)
     else:
-        resultado_tb = 5
-    peso_tb = resultado_tb**0.08
+        q_tb = 5.0
+    p_tb = q_tb**w["tb"]
 
-    # Total Solids
-    # Calculate weight based on Total Solids value
-    if solidos_totais > 0 and solidos_totais <= 150:
-        resultado_st = 79.75 + 0.166 * solidos_totais - 0.001088 * solidos_totais**2
-    elif solidos_totais > 150 and solidos_totais <= 500:
-        resultado_st = 101.67 - 0.13917 * solidos_totais
+    # ---------- 8) Sólidos Totais ----------
+    if 0 < solidos_totais <= 150:
+        q_st = 79.75 + 0.166 * solidos_totais - 0.001088 * solidos_totais**2
+    elif solidos_totais <= 500:
+        q_st = 101.67 - 0.13917 * solidos_totais
     else:
-        resultado_st = 32
-    peso_st = resultado_st**0.08
+        q_st = 32.0
+    p_st = q_st**w["st"]
 
-    # Temperature weight constant
-    peso_temp = 94.0**0.10
+    # ---------- 9) Temperatura (peso fixo salvo se sobrescrito) ----------
+    p_temp = 94.0**w["temp"]
 
-    # Final IQA calculation
-    iqa = peso_od * peso_cf * peso_ph * peso_dbo * peso_nt * peso_ft * peso_temp * peso_tb * peso_st
+    # ---------- Cálculo do IQA ----------
+    iqa = (
+        p_od
+        * p_cf
+        * p_ph
+        * p_dbo
+        * p_nt
+        * p_ft
+        * p_temp
+        * p_tb
+        * p_st
+    )
 
-    # Determine water quality classification
+    # ---------- Classificação ----------
     if iqa <= 19:
-        qualidade = "Péssima"  # "Very Bad"
-    elif iqa > 19 and iqa <= 36:
-        qualidade = "Ruim"  # "Poor"
-    elif iqa > 36 and iqa <= 51:
-        qualidade = "Regular"  # "Fair"
-    elif iqa > 51 and iqa <= 79:
-        qualidade = "Boa"  # "Good"
+        classe = "Péssima"
+    elif iqa <= 36:
+        classe = "Ruim"
+    elif iqa <= 51:
+        classe = "Regular"
+    elif iqa <= 79:
+        classe = "Boa"
     else:
-        qualidade = "Ótima"  # "Excellent"
+        classe = "Ótima"
 
-    return {"iqa": round(iqa, 2), "qualidade": qualidade}
+    return {"iqa": round(iqa, 2), "qualidade": classe}
